@@ -4,7 +4,7 @@ trigger:
       - QA   # Trigger on dev push
 
 pool:
-  name: selfhosted-172  # Your self-hosted Linux agent pool
+  name: selfhosted-172   # Your self-hosted Linux agent pool
 
 steps:
   # Checkout with credentials so push works
@@ -17,12 +17,7 @@ steps:
     inputs:
       targetType: inline
       script: |
-        # Exit on error, unset variables, and fail on pipe errors
-        set -euo pipefail
-
-        echo "Configuring git user"
-        git config user.name "Azure DevOps CI"
-        git config user.email "ci@example.com"
+        set -e
 
         echo "Fetching latest branches"
         git fetch origin
@@ -33,6 +28,7 @@ steps:
 
         echo "Merge dev into master"
         git merge origin/dev --no-ff --allow-unrelated-histories
+
 
         echo "Push to master"
         git push origin master
