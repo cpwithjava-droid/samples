@@ -1,7 +1,7 @@
 trigger:
   branches:
     include:
-      - QA   # Trigger on dev push
+      - QA   # Trigger on QA branch push
 
 pool:
   name: selfhosted-172   # Your self-hosted Linux agent pool
@@ -17,7 +17,7 @@ steps:
     inputs:
       targetType: inline
       script: |
-        set -e
+        set -euo pipefail
 
         echo "Fetching latest branches"
         git fetch origin
@@ -27,8 +27,26 @@ steps:
         git pull origin master
 
         echo "Merge dev into master"
-        git merge origin/dev --no-ff --allow-unrelated-histories
-
+        git merge origin/dev --no-ff --allow-unrelated-histories || {
+          echo "Merge conflict detected. Exiting."
+          exit 1
+        }
 
         echo "Push to master"
         git push origin master
+
+  # Run SonarQube analysis using Docker
+  - task: Bash@3
+    displayName: 'Run SonarQube Analysis via Docker Scanner'
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+
+        docker run --rm \
+          -v "$(Build.SourcesDirectory)":/usr/src \
+          sonarsource/sonar-scanner-cli:latest \
+          -Dsonar.projectKey=Dontnet \
+          -Dsonar.sources=/usr/src \
+          -Dsonar.host.url="http://172.17.0.1:9000" \
+          -Dsonar.login="$(SONAR_TOKEN)"
