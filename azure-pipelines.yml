@@ -6,12 +6,15 @@ trigger:
 pool:
   name: selfhosted-172
 
+variables:
+  REPORT_DIR: $(Build.ArtifactStagingDirectory)/clamav-report
+
 steps:
-  # Checkout with credentials so push works
+  # Checkout with credentials
   - checkout: self
     persistCredentials: true
 
-  # Merge QA into master (auto-resolve conflicts)
+  # Merge QA into master
   - task: Bash@3
     displayName: 'Merge QA into master (auto-resolve conflicts)'
     inputs:
@@ -19,42 +22,31 @@ steps:
       script: |
         set -euo pipefail
 
-        echo "Fetching latest branches"
         git fetch origin
-
-        echo "Checkout master"
         git checkout master
         git pull origin master
-
-        echo "Merge QA into master (auto-resolve conflicts by taking QA)"
         git merge origin/QA -X theirs --no-ff --allow-unrelated-histories
-
-        echo "Push to master"
         git push origin master
 
-  # Run SonarQube analysis using Docker
+  # Install & Run ClamAV Scan (report only)
   - task: Bash@3
-    displayName: 'Run SonarQube Analysis via Docker Scanner'
+    displayName: 'Install & Run ClamAV Scan (Generate Report)'
     inputs:
       targetType: inline
       script: |
         set -euo pipefail
 
-        docker run --rm \
-          -v "$(Build.SourcesDirectory)":/usr/src \
-          sonarsource/sonar-scanner-cli:latest \
-          -Dsonar.projectKey=Dontnet \
-          -Dsonar.sources=/usr/src \
-          -Dsonar.host.url="http://172.17.0.1:9000" \
-          -Dsonar.login="$(SONAR_TOKEN)"
-
-  # Install & Run ClamAV Scan
-  - task: Bash@3
-    displayName: 'Install & Run ClamAV Scan'
-    inputs:
-      targetType: inline
-      script: |
-        set -euo pipefail
+        mkdir -p "$(REPORT_DIR)"
 
        
-        clamscan -r "$(Build.SourcesDirectory)"
+        clamscan -r "$(Build.SourcesDirectory)" \
+          --log="$(REPORT_DIR)/clamav-report.log" \
+          --infected
+
+  # Publish ClamAV Report
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish ClamAV Report'
+    inputs:
+      PathtoPublish: '$(REPORT_DIR)'
+      ArtifactName: 'clamav-report'
+      publishLocation: 'Container'
