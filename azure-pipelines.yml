@@ -28,7 +28,7 @@ steps:
         git merge origin/QA -X theirs --no-ff --allow-unrelated-histories
         git push origin master
 
-  # Install & Run ClamAV Scan (report only)
+  #  Run ClamAV Scan
   - task: Bash@3
     displayName: 'Install & Run ClamAV Scan (Generate Report)'
     inputs:
