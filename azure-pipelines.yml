@@ -33,7 +33,7 @@ steps:
         echo "Push to master"
         git push origin master
 
-  # Run SonarQube analysis using Docker
+  # Run SonarQube analysis using Docker 
   - task: Bash@3
     displayName: 'Run SonarQube Analysis via Docker Scanner'
     inputs:
