@@ -1,7 +1,5 @@
 trigger:
-  branches:
-    include:
-      - QA   # Trigger on QA branch push
+  - QA   # Trigger on QA branch push
 
 pool:
   name: selfhosted-172   # Your self-hosted Linux agent pool
