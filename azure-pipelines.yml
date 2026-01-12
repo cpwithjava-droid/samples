@@ -1,17 +1,17 @@
 trigger:
-  - QA   # Trigger on QA branch push
+  - QA   
 
 pool:
-  name: selfhosted-172   # Your self-hosted Linux agent pool
+  name: selfhosted-172  
 
 steps:
   # Checkout with credentials so push works
   - checkout: self
     persistCredentials: true
 
-  # Merge QA into master
+  # Merge QA into master (auto-resolve conflicts)
   - task: Bash@3
-    displayName: Merge QA into master
+    displayName: Merge QA into master (auto-resolve conflicts)
     inputs:
       targetType: inline
       script: |
@@ -24,11 +24,8 @@ steps:
         git checkout master
         git pull origin master
 
-        echo "Merge QA into master"
-        git merge origin/QA --no-ff --allow-unrelated-histories || {
-          echo "Merge conflict detected. Exiting."
-          exit 1
-        }
+        echo "Merge QA into master (auto-resolve conflicts by taking QA)"
+        git merge origin/QA -X theirs --no-ff --allow-unrelated-histories
 
         echo "Push to master"
         git push origin master
@@ -48,5 +45,3 @@ steps:
           -Dsonar.sources=/usr/src \
           -Dsonar.host.url="http://172.17.0.1:9000" \
           -Dsonar.login="$(SONAR_TOKEN)"
-
- 
