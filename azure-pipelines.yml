@@ -1,41 +1,52 @@
 trigger:
-- main
+  - QA   # Trigger on QA branch push
 
 pool:
-  name: selfhosted-172
-
-variables:
-  buildConfiguration: 'Release'
-  outputFolder: '$(Build.ArtifactStagingDirectory)/publish'
+  name: selfhosted-172   # Your self-hosted Linux agent pool
 
 steps:
-# Install NuGet tool (optional, but recommended)
-- task: NuGetToolInstaller@1
+  # Checkout with credentials so push works
+  - checkout: self
+    persistCredentials: true
 
-# Restore all NuGet packages for all solutions
-- task: NuGetCommand@2
-  inputs:
-    restoreSolution: '**/*.sln'
-    feedsToUse: 'select'
+  # Merge QA into master
+  - task: Bash@3
+    displayName: Merge QA into master
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
 
-# Build all .NET projects in the repo
-- script: |
-    echo "Building all .NET projects in $(Build.SourcesDirectory)..."
-    dotnet build **/*.sln --configuration $(buildConfiguration) --no-restore
-  displayName: "Build .NET Samples"
+        echo "Fetching latest branches"
+        git fetch origin
 
-# Run each sample project
-- script: |
-    echo "Running each sample project..."
-    for proj in $(find . -name "*.csproj"); do
-      echo "Running sample: $proj"
-      dotnet run --project $proj --configuration $(buildConfiguration)
-    done
-  displayName: "Run .NET Samples"
+        echo "Checkout master"
+        git checkout master
+        git pull origin master
 
-# Optional: Publish artifacts (like build outputs)
-- task: PublishBuildArtifacts@1
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'dotnet-samples'
-    publishLocation: 'Container'
+        echo "Merge QA into master"
+        git merge origin/QA --no-ff --allow-unrelated-histories || {
+          echo "Merge conflict detected. Exiting."
+          exit 1
+        }
+
+        echo "Push to master"
+        git push origin master
+
+  # Run SonarQube analysis using Docker
+  - task: Bash@3
+    displayName: 'Run SonarQube Analysis via Docker Scanner'
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+
+        docker run --rm \
+          -v "$(Build.SourcesDirectory)":/usr/src \
+          sonarsource/sonar-scanner-cli:latest \
+          -Dsonar.projectKey=Dontnet \
+          -Dsonar.sources=/usr/src \
+          -Dsonar.host.url="http://172.17.0.1:9000" \
+          -Dsonar.login="$(SONAR_TOKEN)"
+
+ 
