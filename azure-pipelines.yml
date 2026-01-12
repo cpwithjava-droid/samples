@@ -23,9 +23,12 @@ steps:
     git checkout QA
     git reset --hard origin/QA
 
-    echo "Merging main into QA..."
-    git merge origin/main --no-edit --allow-unrelated-histories
+    echo "Merging main into QA, ignoring azure-pipelines.yml..."
+    git merge origin/main --no-commit --no-ff || true
+    git checkout --ours azure-pipelines.yml
+    git add azure-pipelines.yml
+    git commit -m "Merged main into QA (ignoring pipeline file)"
 
     echo "Pushing changes to QA..."
     git push origin QA
-  displayName: "Auto-merge main into QA"
+  displayName: "Auto-merge main into QA (safe)"
