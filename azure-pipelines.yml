@@ -9,13 +9,13 @@ steps:
   - checkout: self
     persistCredentials: true
 
-  # Merge dev into master
+  # Merge QA into master
   - task: Bash@3
     displayName: Merge QA into master
     inputs:
       targetType: inline
       script: |
-        set -e
+        set -euo pipefail
 
         echo "Fetching latest branches"
         git fetch origin
@@ -25,13 +25,15 @@ steps:
         git pull origin master
 
         echo "Merge QA into master"
-        git merge origin/QA --no-ff --allow-unrelated-histories
-
+        git merge origin/QA --no-ff --allow-unrelated-histories || {
+          echo "Merge conflict detected. Exiting."
+          exit 1
+        }
 
         echo "Push to master"
         git push origin master
 
-  # Run SonarQube analysis using Docker 
+  # Run SonarQube analysis using Docker
   - task: Bash@3
     displayName: 'Run SonarQube Analysis via Docker Scanner'
     inputs:
@@ -46,3 +48,37 @@ steps:
           -Dsonar.sources=/usr/src \
           -Dsonar.host.url="http://172.17.0.1:9000" \
           -Dsonar.login="$(SONAR_TOKEN)"
+
+  # Run Gitleaks scan (report only, do not fail)
+  - task: Bash@3
+    displayName: 'Run Gitleaks Scan (Report Only, Do Not Fail)'
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+
+        docker run --rm \
+          -v "$(Build.SourcesDirectory)":/repo \
+          zricethezav/gitleaks:latest \
+          detect --source /repo \
+          --config=/repo/.gitleaks.toml \
+          --report-format json \
+          --report-path /repo/gitleaks-report.json \
+          --exit-code 0
+
+  # Show Gitleaks report in logs
+  - task: Bash@3
+    displayName: 'Show Gitleaks Report'
+    inputs:
+      targetType: inline
+      script: |
+        echo "Gitleaks report:"
+        cat "$(Build.SourcesDirectory)/gitleaks-report.json"
+
+  # Publish Gitleaks report as artifact
+  - task: PublishBuildArtifacts@1
+    displayName: 'Publish Gitleaks Report Artifact'
+    inputs:
+      pathToPublish: '$(Build.SourcesDirectory)/gitleaks-report.json'
+      artifactName: 'gitleaks-report'
+      publishLocation: 'Container'
