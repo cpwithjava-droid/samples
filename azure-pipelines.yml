@@ -1,4 +1,3 @@
-
 trigger:
 - main
 
@@ -7,20 +6,40 @@ pool:
 
 variables:
   solution: '**/*.sln'
-  buildPlatform: 'Any CPU'
   buildConfiguration: 'Release'
+  outputFolder: '$(Build.ArtifactStagingDirectory)/publish'
 
 steps:
+# Install latest NuGet (optional, dotnet restore works without it)
 - task: NuGetToolInstaller@1
 
+# Restore NuGet packages
 - task: NuGetCommand@2
   inputs:
     restoreSolution: '$(solution)'
 
-- task: VSBuild@1
-  inputs:
-    solution: '$(solution)'
-    msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(build.artifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
-    platform: '$(buildPlatform)'
-    configuration: '$(buildConfiguration)'
+# Build the solution
+- script: |
+    echo "Building solution..."
+    dotnet build $(solution) --configuration $(buildConfiguration) --no-restore
+  displayName: "Build .NET Solution"
 
+# Publish Web Project (adjust path if needed)
+- script: |
+    echo "Publishing web project..."
+    dotnet publish **/YourWebProject.csproj `
+      -c $(buildConfiguration) `
+      -o $(outputFolder) `
+      /p:DeployOnBuild=true `
+      /p:WebPublishMethod=Package `
+      /p:PackageAsSingleFile=true `
+      /p:SkipInvalidConfigurations=true `
+      /p:DesktopBuildPackageLocation="$(outputFolder)/WebApp.zip" `
+      /p:DeployIisAppPath="Default Web Site"
+  displayName: "Publish Web Project"
+
+# Publish artifact
+- task: PublishBuildArtifacts@1
+  inputs:
+    PathtoPublish: '$(outputFolder)'
+    ArtifactName: 'drop'
