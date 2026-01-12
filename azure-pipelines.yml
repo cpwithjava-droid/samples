@@ -1,41 +1,31 @@
 trigger:
-- main
+- main   # Trigger when code is pushed to main
 
 pool:
   name: selfhosted-172
 
-variables:
-  buildConfiguration: 'Release'
-  outputFolder: '$(Build.ArtifactStagingDirectory)/publish'
-
 steps:
-# Install NuGet tool (optional, but recommended)
-- task: NuGetToolInstaller@1
+- checkout: self
+  persistCredentials: true
+  clean: true
 
-# Restore all NuGet packages for all solutions
-- task: NuGetCommand@2
-  inputs:
-    restoreSolution: '**/*.sln'
-    feedsToUse: 'select'
-
-# Build all .NET projects in the repo
 - script: |
-    echo "Building all .NET projects in $(Build.SourcesDirectory)..."
-    dotnet build **/*.sln --configuration $(buildConfiguration) --no-restore
-  displayName: "Build .NET Samples"
+    set -e
 
-# Run each sample project
-- script: |
-    echo "Running each sample project..."
-    for proj in $(find . -name "*.csproj"); do
-      echo "Running sample: $proj"
-      dotnet run --project $proj --configuration $(buildConfiguration)
-    done
-  displayName: "Run .NET Samples"
+    echo "Configuring Git..."
+    git config user.email "cpwithjava@gmail.com"
+    git config user.name "Azure DevOps Pipeline"
 
-# Optional: Publish artifacts (like build outputs)
-- task: PublishBuildArtifacts@1
-  inputs:
-    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
-    ArtifactName: 'dotnet-samples'
-    publishLocation: 'Container'
+    echo "Fetching all branches..."
+    git fetch origin
+
+    echo "Checking out QA branch..."
+    git checkout QA
+    git reset --hard origin/QA
+
+    echo "Merging main into QA..."
+    git merge origin/main --no-edit --allow-unrelated-histories
+
+    echo "Pushing changes to QA..."
+    git push origin QA
+  displayName: "Auto-merge main into QA"
