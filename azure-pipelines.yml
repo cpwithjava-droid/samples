@@ -1,39 +1,38 @@
 trigger:
-- main   # Trigger when code is pushed to main
+  branches:
+    include:
+      - QA   # Trigger on dev push
 
 pool:
-  name: selfhosted-172
+  name: selfhosted-172  # Your self-hosted Linux agent pool
 
 steps:
-- checkout: self
-  persistCredentials: true
-  clean: true
+  # Checkout with credentials so push works
+  - checkout: self
+    persistCredentials: true
 
-- script: |
-    set -e
+  # Merge dev into master
+  - task: Bash@3
+    displayName: Merge dev into master
+    inputs:
+      targetType: inline
+      script: |
+        # Exit on error, unset variables, and fail on pipe errors
+        set -euo pipefail
 
-    echo "Configuring Git..."
-    git config user.email "cpwithjava@gmail.com"
-    git config user.name "Azure DevOps Pipeline"
+        echo "Configuring git user"
+        git config user.name "Azure DevOps CI"
+        git config user.email "ci@example.com"
 
-    echo "Fetching all branches..."
-    git fetch origin
+        echo "Fetching latest branches"
+        git fetch origin
 
-    echo "Checking out QA branch..."
-    git checkout QA
-    git reset --hard origin/QA
+        echo "Checkout master"
+        git checkout master
+        git pull origin master
 
-    echo "Merging main into QA, ignoring azure-pipelines.yml..."
-    git merge origin/main --no-commit --no-ff --allow-unrelated-histories || true
-    git checkout --ours azure-pipelines.yml
-    git add azure-pipelines.yml
+        echo "Merge dev into master"
+        git merge origin/dev --no-ff --allow-unrelated-histories
 
-    # Only commit if there are changes
-    if ! git diff-index --quiet HEAD --; then
-        git commit -m "Merged main into QA (ignoring pipeline file)"
-        echo "Pushing changes to QA..."
-        git push origin QA
-    else
-        echo "Nothing to merge, QA already up to date with main"
-    fi
-  displayName: "Auto-merge main into QA (safe)"
+        echo "Push to master"
+        git push origin master
