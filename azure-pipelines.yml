@@ -1,8 +1,10 @@
 trigger:
-  - QA   
+  branches:
+    include:
+      - QA
 
 pool:
-  name: selfhosted-172  
+  name: selfhosted-172
 
 steps:
   # Checkout with credentials so push works
@@ -11,7 +13,7 @@ steps:
 
   # Merge QA into master (auto-resolve conflicts)
   - task: Bash@3
-    displayName: Merge QA into master (auto-resolve conflicts)
+    displayName: 'Merge QA into master (auto-resolve conflicts)'
     inputs:
       targetType: inline
       script: |
@@ -45,3 +47,14 @@ steps:
           -Dsonar.sources=/usr/src \
           -Dsonar.host.url="http://172.17.0.1:9000" \
           -Dsonar.login="$(SONAR_TOKEN)"
+
+  # Install & Run ClamAV Scan
+  - task: Bash@3
+    displayName: 'Install & Run ClamAV Scan'
+    inputs:
+      targetType: inline
+      script: |
+        set -euo pipefail
+
+       
+        clamscan -r "$(Build.SourcesDirectory)"
