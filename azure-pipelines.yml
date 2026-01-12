@@ -17,7 +17,7 @@ steps:
     inputs:
       targetType: inline
       script: |
-        set -euo pipefail
+        set -e
 
         echo "Fetching latest branches"
         git fetch origin
@@ -27,10 +27,8 @@ steps:
         git pull origin master
 
         echo "Merge dev into master"
-        git merge origin/dev --no-ff --allow-unrelated-histories || {
-          echo "Merge conflict detected. Exiting."
-          exit 1
-        }
+        git merge origin/dev --no-ff --allow-unrelated-histories
+
 
         echo "Push to master"
         git push origin master
