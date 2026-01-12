@@ -5,41 +5,37 @@ pool:
   name: selfhosted-172
 
 variables:
-  solution: '**/*.sln'
   buildConfiguration: 'Release'
   outputFolder: '$(Build.ArtifactStagingDirectory)/publish'
 
 steps:
-# Install latest NuGet (optional, dotnet restore works without it)
+# Install NuGet tool (optional, but recommended)
 - task: NuGetToolInstaller@1
 
-# Restore NuGet packages
+# Restore all NuGet packages for all solutions
 - task: NuGetCommand@2
   inputs:
-    restoreSolution: '$(solution)'
+    restoreSolution: '**/*.sln'
+    feedsToUse: 'select'
 
-# Build the solution
+# Build all .NET projects in the repo
 - script: |
-    echo "Building solution..."
-    dotnet build $(solution) --configuration $(buildConfiguration) --no-restore
-  displayName: "Build .NET Solution"
+    echo "Building all .NET projects in $(Build.SourcesDirectory)..."
+    dotnet build **/*.sln --configuration $(buildConfiguration) --no-restore
+  displayName: "Build .NET Samples"
 
-# Publish Web Project (adjust path if needed)
+# Run each sample project
 - script: |
-    echo "Publishing web project..."
-    dotnet publish **/YourWebProject.csproj `
-      -c $(buildConfiguration) `
-      -o $(outputFolder) `
-      /p:DeployOnBuild=true `
-      /p:WebPublishMethod=Package `
-      /p:PackageAsSingleFile=true `
-      /p:SkipInvalidConfigurations=true `
-      /p:DesktopBuildPackageLocation="$(outputFolder)/WebApp.zip" `
-      /p:DeployIisAppPath="Default Web Site"
-  displayName: "Publish Web Project"
+    echo "Running each sample project..."
+    for proj in $(find . -name "*.csproj"); do
+      echo "Running sample: $proj"
+      dotnet run --project $proj --configuration $(buildConfiguration)
+    done
+  displayName: "Run .NET Samples"
 
-# Publish artifact
+# Optional: Publish artifacts (like build outputs)
 - task: PublishBuildArtifacts@1
   inputs:
-    PathtoPublish: '$(outputFolder)'
-    ArtifactName: 'drop'
+    PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    ArtifactName: 'dotnet-samples'
+    publishLocation: 'Container'
